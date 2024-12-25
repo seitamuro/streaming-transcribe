@@ -6,6 +6,8 @@
   "scripts": {
     "lint": "pnpm run --filter web lint",
     "format": "pnpm run --filter web format:check",
+    "cdk:deploy": "pnpm run --filter cdk cdk deploy",
+    "web:dev": "source setup-env.sh && pnpm run --filter web dev",
     "prepare": "husky install"
   },
   "packageManager": "pnpm@8.15.4",

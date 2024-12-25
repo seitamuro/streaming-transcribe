@@ -1,30 +1,182 @@
-import { useState } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
+import { useEffect, useState } from 'react';
+
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+
+import {
+  Button,
+  Container,
+  ContentLayout,
+  Header,
+  SpaceBetween,
+} from '@cloudscape-design/components';
+import '@cloudscape-design/global-styles/index.css';
+
+import { Auth } from 'aws-amplify';
+
+import { Authenticator } from '@aws-amplify/ui-react';
+import '@aws-amplify/ui-react/styles.css';
+
+import { TranscribeStreamingClient } from '@aws-sdk/client-transcribe-streaming';
+
+async function signOut() {
+  try {
+    await Auth.signOut();
+  } catch (error) {
+    console.log('error signing out: ', error);
+  }
+}
+
+import { AWSCredentials } from '@aws-amplify/core/internals/utils';
 import './App.css';
+import awsExports from './aws-exports';
+import LiveTranscriptions from './components/LiveTranscriptions';
+import { Transcript } from './types';
+
+Auth.configure(awsExports);
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [currentCredentials, setCurrentCredentials] = useState<AWSCredentials>({
+    accessKeyId: '',
+    secretAccessKey: '',
+  });
+  // const [currentSession, setCurrentSession] = useState<CognitoUserSession>();
+
+  const [transcriptionClient, setTranscriptionClient] = useState<TranscribeStreamingClient | null>(
+    null
+  );
+  const [transcribeStatus, setTranscribeStatus] = useState<boolean>(false);
+  const [transcript, setTranscript] = useState<Transcript>();
+  const [lines, setLines] = useState<Transcript[]>([]);
+  const [currentLine, setCurrentLine] = useState<Transcript[]>([]);
+  const [mediaRecorder, setMediaRecorder] = useState<AudioWorkletNode>();
+
+  useEffect(() => {
+    async function getAuth() {
+      const currCreds = await Auth.currentUserCredentials();
+      return currCreds;
+    }
+
+    getAuth().then((res) => {
+      const currCreds = res;
+      setCurrentCredentials(currCreds);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (transcript) {
+      setTranscript(transcript);
+      if (transcript.partial) {
+        setCurrentLine([transcript]);
+      } else {
+        setLines([...lines, transcript]);
+        setCurrentLine([]);
+      }
+    }
+  }, [transcript]);
+
+  const formFields = {
+    signUp: {
+      email: {
+        order: 1,
+        isRequired: true,
+      },
+      name: {
+        order: 2,
+        isRequired: true,
+      },
+      password: {
+        order: 3,
+      },
+      confirm_password: {
+        order: 4,
+      },
+    },
+  };
+
+  const handleTranscribe = async () => {
+    setTranscribeStatus(!transcribeStatus);
+    if (transcribeStatus) {
+      console.log('Stopping transcription');
+    } else {
+      console.log('Starting transcription');
+    }
+    return transcribeStatus;
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>count is {count}</button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
-    </>
+    <Router>
+      <Authenticator loginMechanisms={['email']} formFields={formFields}>
+        {() => (
+          <>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <>
+                    <ContentLayout
+                      header={
+                        <SpaceBetween size="m">
+                          <Header
+                            variant="h1"
+                            description="Demo of live transcriptions"
+                            actions={
+                              <SpaceBetween direction="horizontal" size="m">
+                                <Button variant="primary" onClick={handleTranscribe}>
+                                  {transcribeStatus ? 'Stop Transcription' : 'Start Transcription'}
+                                </Button>
+
+                                <Button variant="primary" onClick={signOut}>
+                                  Sign out
+                                </Button>
+                              </SpaceBetween>
+                            }
+                          >
+                            Amazon Transcribe Live Transcriptions
+                          </Header>
+                        </SpaceBetween>
+                      }
+                    >
+                      <Container header={<Header variant="h2">Transcriptions</Header>}>
+                        <SpaceBetween size="xs">
+                          <div style={{ height: '663px' }} className={'transcriptionContainer'}>
+                            {lines.map((line, index) => {
+                              return (
+                                <div key={index}>
+                                  <strong>Channel {line.channel}</strong>: {line.text}
+                                  <br />
+                                </div>
+                              );
+                            })}
+                            {currentLine.length > 0 &&
+                              currentLine.map((line, index) => {
+                                return (
+                                  <div key={index}>
+                                    <strong>Channel {line.channel}</strong>: {line.text}
+                                    <br />
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </SpaceBetween>
+                      </Container>
+                    </ContentLayout>
+                    <LiveTranscriptions
+                      currentCredentials={currentCredentials}
+                      mediaRecorder={mediaRecorder}
+                      setMediaRecorder={setMediaRecorder}
+                      setTranscriptionClient={setTranscriptionClient}
+                      transcriptionClient={transcriptionClient}
+                      transcribeStatus={transcribeStatus}
+                      setTranscript={setTranscript}
+                    />
+                  </>
+                }
+              />
+            </Routes>
+          </>
+        )}
+      </Authenticator>
+    </Router>
   );
 }
 
