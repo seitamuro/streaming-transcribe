@@ -9,7 +9,12 @@ export class CdkStack extends cdk.Stack {
     super(scope, id, props);
 
     // The code that defines your stack goes here
-    const userPool = new cognito.UserPool(this, "UserPool", {});
+    const userPool = new cognito.UserPool(this, "UserPool", {
+      selfSignUpEnabled: true,
+      signInAliases: {
+        email: true,
+      },
+    });
     const userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
       userPool: userPool,
     });

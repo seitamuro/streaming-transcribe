@@ -11,28 +11,21 @@ import {
 } from '@cloudscape-design/components';
 import '@cloudscape-design/global-styles/index.css';
 
-import { Auth } from 'aws-amplify';
-
-import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
+import { Amplify } from 'aws-amplify';
+import { signOut } from 'aws-amplify/auth';
+import { Authenticator } from '@aws-amplify/ui-react';
 
 import { TranscribeStreamingClient } from '@aws-sdk/client-transcribe-streaming';
 
-async function signOut() {
-  try {
-    await Auth.signOut();
-  } catch (error) {
-    console.log('error signing out: ', error);
-  }
-}
-
-import { AWSCredentials } from '@aws-amplify/core/internals/utils';
 import './App.css';
 import awsExports from './aws-exports';
 import LiveTranscriptions from './components/LiveTranscriptions';
 import { Transcript } from './types';
+import { fetchAuthSession } from '@aws-amplify/core';
+import { AWSCredentials } from '@aws-amplify/core/internals/utils';
 
-Auth.configure(awsExports);
+Amplify.configure(awsExports);
 
 function App() {
   const [currentCredentials, setCurrentCredentials] = useState<AWSCredentials>({
@@ -52,7 +45,8 @@ function App() {
 
   useEffect(() => {
     async function getAuth() {
-      const currCreds = await Auth.currentUserCredentials();
+      const authSession = await fetchAuthSession();
+      const currCreds = authSession.credentials!;
       return currCreds;
     }
 
@@ -74,25 +68,6 @@ function App() {
     }
   }, [transcript]);
 
-  const formFields = {
-    signUp: {
-      email: {
-        order: 1,
-        isRequired: true,
-      },
-      name: {
-        order: 2,
-        isRequired: true,
-      },
-      password: {
-        order: 3,
-      },
-      confirm_password: {
-        order: 4,
-      },
-    },
-  };
-
   const handleTranscribe = async () => {
     setTranscribeStatus(!transcribeStatus);
     if (transcribeStatus) {
@@ -105,76 +80,72 @@ function App() {
 
   return (
     <Router>
-      <Authenticator loginMechanisms={['email']} formFields={formFields}>
-        {() => (
-          <>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <>
-                    <ContentLayout
-                      header={
-                        <SpaceBetween size="m">
-                          <Header
-                            variant="h1"
-                            description="Demo of live transcriptions"
-                            actions={
-                              <SpaceBetween direction="horizontal" size="m">
-                                <Button variant="primary" onClick={handleTranscribe}>
-                                  {transcribeStatus ? 'Stop Transcription' : 'Start Transcription'}
-                                </Button>
+      <Authenticator>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <ContentLayout
+                  header={
+                    <SpaceBetween size="m">
+                      <Header
+                        variant="h1"
+                        description="Demo of live transcriptions"
+                        actions={
+                          <SpaceBetween direction="horizontal" size="m">
+                            <Button variant="primary" onClick={handleTranscribe}>
+                              {transcribeStatus ? 'Stop Transcription' : 'Start Transcription'}
+                            </Button>
 
-                                <Button variant="primary" onClick={signOut}>
-                                  Sign out
-                                </Button>
-                              </SpaceBetween>
-                            }
-                          >
-                            Amazon Transcribe Live Transcriptions
-                          </Header>
-                        </SpaceBetween>
-                      }
-                    >
-                      <Container header={<Header variant="h2">Transcriptions</Header>}>
-                        <SpaceBetween size="xs">
-                          <div style={{ height: '663px' }} className={'transcriptionContainer'}>
-                            {lines.map((line, index) => {
-                              return (
-                                <div key={index}>
-                                  <strong>Channel {line.channel}</strong>: {line.text}
-                                  <br />
-                                </div>
-                              );
-                            })}
-                            {currentLine.length > 0 &&
-                              currentLine.map((line, index) => {
-                                return (
-                                  <div key={index}>
-                                    <strong>Channel {line.channel}</strong>: {line.text}
-                                    <br />
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </SpaceBetween>
-                      </Container>
-                    </ContentLayout>
-                    <LiveTranscriptions
-                      currentCredentials={currentCredentials}
-                      mediaRecorder={mediaRecorder}
-                      setMediaRecorder={setMediaRecorder}
-                      setTranscriptionClient={setTranscriptionClient}
-                      transcriptionClient={transcriptionClient}
-                      transcribeStatus={transcribeStatus}
-                      setTranscript={setTranscript}
-                    />
-                  </>
-                }
-              />
-            </Routes>
-          </>
-        )}
+                            <Button variant="primary" onClick={() => signOut()}>
+                              Sign out
+                            </Button>
+                          </SpaceBetween>
+                        }
+                      >
+                        Amazon Transcribe Live Transcriptions
+                      </Header>
+                    </SpaceBetween>
+                  }
+                >
+                  <Container header={<Header variant="h2">Transcriptions</Header>}>
+                    <SpaceBetween size="xs">
+                      <div style={{ height: '663px' }} className={'transcriptionContainer'}>
+                        {lines.map((line, index) => {
+                          return (
+                            <div key={index}>
+                              <strong>Channel {line.channel}</strong>: {line.text}
+                              <br />
+                            </div>
+                          );
+                        })}
+                        {currentLine.length > 0 &&
+                          currentLine.map((line, index) => {
+                            return (
+                              <div key={index}>
+                                <strong>Channel {line.channel}</strong>: {line.text}
+                                <br />
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </SpaceBetween>
+                  </Container>
+                </ContentLayout>
+                <LiveTranscriptions
+                  currentCredentials={currentCredentials}
+                  mediaRecorder={mediaRecorder}
+                  setMediaRecorder={setMediaRecorder}
+                  setTranscriptionClient={setTranscriptionClient}
+                  transcriptionClient={transcriptionClient}
+                  transcribeStatus={transcribeStatus}
+                  setTranscript={setTranscript}
+                />
+              </>
+            }
+          />
+        </Routes>
       </Authenticator>
     </Router>
   );
