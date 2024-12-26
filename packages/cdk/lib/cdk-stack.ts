@@ -41,12 +41,24 @@ export class CdkStack extends cdk.Stack {
             "ForAnyValue:StringLike": {
               "cognito-identity.amazonaws.com:amr": "authenticated",
             },
-          }
+          },
+          "sts:AssumeRoleWithWebIdentity"
         ),
       }
     );
     authenticatedRole.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonTranscribeFullAccess")
+    );
+
+    new cognito.CfnIdentityPoolRoleAttachment(
+      this,
+      "IdentityPoolRoleAttachment",
+      {
+        identityPoolId: identityPool.ref,
+        roles: {
+          authenticated: authenticatedRole.roleArn,
+        },
+      }
     );
 
     new cdk.CfnOutput(this, "UserPoolId", {

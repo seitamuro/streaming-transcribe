@@ -14,7 +14,6 @@ import '@cloudscape-design/global-styles/index.css';
 import '@aws-amplify/ui-react/styles.css';
 import { Amplify } from 'aws-amplify';
 import { signOut } from 'aws-amplify/auth';
-import { Authenticator } from '@aws-amplify/ui-react';
 
 import { TranscribeStreamingClient } from '@aws-sdk/client-transcribe-streaming';
 
@@ -80,39 +79,47 @@ function App() {
 
   return (
     <Router>
-      <Authenticator>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                <ContentLayout
-                  header={
-                    <SpaceBetween size="m">
-                      <Header
-                        variant="h1"
-                        description="Demo of live transcriptions"
-                        actions={
-                          <SpaceBetween direction="horizontal" size="m">
-                            <Button variant="primary" onClick={handleTranscribe}>
-                              {transcribeStatus ? 'Stop Transcription' : 'Start Transcription'}
-                            </Button>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              <ContentLayout
+                header={
+                  <SpaceBetween size="m">
+                    <Header
+                      variant="h1"
+                      description="Demo of live transcriptions"
+                      actions={
+                        <SpaceBetween direction="horizontal" size="m">
+                          <Button variant="primary" onClick={handleTranscribe}>
+                            {transcribeStatus ? 'Stop Transcription' : 'Start Transcription'}
+                          </Button>
 
-                            <Button variant="primary" onClick={() => signOut()}>
-                              Sign out
-                            </Button>
-                          </SpaceBetween>
-                        }
-                      >
-                        Amazon Transcribe Live Transcriptions
-                      </Header>
-                    </SpaceBetween>
-                  }
-                >
-                  <Container header={<Header variant="h2">Transcriptions</Header>}>
-                    <SpaceBetween size="xs">
-                      <div style={{ height: '663px' }} className={'transcriptionContainer'}>
-                        {lines.map((line, index) => {
+                          <Button variant="primary" onClick={() => signOut()}>
+                            Sign out
+                          </Button>
+                        </SpaceBetween>
+                      }
+                    >
+                      Amazon Transcribe Live Transcriptions
+                    </Header>
+                  </SpaceBetween>
+                }
+              >
+                <Container header={<Header variant="h2">Transcriptions</Header>}>
+                  <SpaceBetween size="xs">
+                    <div style={{ height: '663px' }} className={'transcriptionContainer'}>
+                      {lines.map((line, index) => {
+                        return (
+                          <div key={index}>
+                            <strong>Channel {line.channel}</strong>: {line.text}
+                            <br />
+                          </div>
+                        );
+                      })}
+                      {currentLine.length > 0 &&
+                        currentLine.map((line, index) => {
                           return (
                             <div key={index}>
                               <strong>Channel {line.channel}</strong>: {line.text}
@@ -120,33 +127,23 @@ function App() {
                             </div>
                           );
                         })}
-                        {currentLine.length > 0 &&
-                          currentLine.map((line, index) => {
-                            return (
-                              <div key={index}>
-                                <strong>Channel {line.channel}</strong>: {line.text}
-                                <br />
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </SpaceBetween>
-                  </Container>
-                </ContentLayout>
-                <LiveTranscriptions
-                  currentCredentials={currentCredentials}
-                  mediaRecorder={mediaRecorder}
-                  setMediaRecorder={setMediaRecorder}
-                  setTranscriptionClient={setTranscriptionClient}
-                  transcriptionClient={transcriptionClient}
-                  transcribeStatus={transcribeStatus}
-                  setTranscript={setTranscript}
-                />
-              </>
-            }
-          />
-        </Routes>
-      </Authenticator>
+                    </div>
+                  </SpaceBetween>
+                </Container>
+              </ContentLayout>
+              <LiveTranscriptions
+                currentCredentials={currentCredentials}
+                mediaRecorder={mediaRecorder}
+                setMediaRecorder={setMediaRecorder}
+                setTranscriptionClient={setTranscriptionClient}
+                transcriptionClient={transcriptionClient}
+                transcribeStatus={transcribeStatus}
+                setTranscript={setTranscript}
+              />
+            </>
+          }
+        />
+      </Routes>
     </Router>
   );
 }
