@@ -7,7 +7,7 @@ import { LiveTranscriptionProps, MessageDataType, RecordingProperties } from '..
 //const sampleRate = import.meta.env.VITE_TRANSCRIBE_SAMPLING_RATE;
 const audiosource = import.meta.env.VITE_TRANSCRIBE_AUDIO_SOURCE;
 
-const startStreaming = async (
+const startStreaming = async () =>
   /*handleTranscribeOutput: (
     data: string,
     partial: boolean,
@@ -15,74 +15,74 @@ const startStreaming = async (
     mediaRecorder: AudioWorkletNode
   ) => void,
   currentCredentials: AWSCredentials*/
-) => {
-  const audioContext = new window.AudioContext();
-  let stream: MediaStream;
+  {
+    const audioContext = new window.AudioContext();
+    let stream: MediaStream;
 
-  if (audiosource === 'ScreenCapture') {
-    stream = await window.navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
+    if (audiosource === 'ScreenCapture') {
+      stream = await window.navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+    } else {
+      stream = await window.navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true,
+      });
+    }
+
+    const source1 = audioContext.createMediaStreamSource(stream);
+
+    const recordingprops: RecordingProperties = {
+      numberOfChannels: 1,
+      sampleRate: audioContext.sampleRate,
+      maxFrameCount: (audioContext.sampleRate * 1) / 10,
+    };
+
+    try {
+      await audioContext.audioWorklet.addModule('./worklets/recording-processor.js');
+    } catch (error) {
+      console.log(`Add module error ${error}`);
+    }
+    const mediaRecorder = new AudioWorkletNode(audioContext, 'recording-processor', {
+      processorOptions: recordingprops,
     });
-  } else {
-    stream = await window.navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: true,
+
+    const destination = audioContext.createMediaStreamDestination();
+
+    mediaRecorder.port.postMessage({
+      message: 'UPDATE_RECORDING_STATE',
+      setRecording: true,
     });
-  }
 
-  const source1 = audioContext.createMediaStreamSource(stream);
+    source1.connect(mediaRecorder).connect(destination);
+    mediaRecorder.port.onmessageerror = (error) => {
+      console.log(`Error receving message from worklet ${error}`);
+    };
 
-  const recordingprops: RecordingProperties = {
-    numberOfChannels: 1,
-    sampleRate: audioContext.sampleRate,
-    maxFrameCount: (audioContext.sampleRate * 1) / 10,
-  };
+    const audioDataIterator = pEvent.iterator<'message', MessageEvent<MessageDataType>>(
+      mediaRecorder.port,
+      'message'
+    );
 
-  try {
-    await audioContext.audioWorklet.addModule('./worklets/recording-processor.js');
-  } catch (error) {
-    console.log(`Add module error ${error}`);
-  }
-  const mediaRecorder = new AudioWorkletNode(audioContext, 'recording-processor', {
-    processorOptions: recordingprops,
-  });
-
-  const destination = audioContext.createMediaStreamDestination();
-
-  mediaRecorder.port.postMessage({
-    message: 'UPDATE_RECORDING_STATE',
-    setRecording: true,
-  });
-
-  source1.connect(mediaRecorder).connect(destination);
-  mediaRecorder.port.onmessageerror = (error) => {
-    console.log(`Error receving message from worklet ${error}`);
-  };
-
-  const audioDataIterator = pEvent.iterator<'message', MessageEvent<MessageDataType>>(
-    mediaRecorder.port,
-    'message'
-  );
-
-  const ws = new WebSocket('ws://localhost:8080');
-  const getAudioStream = async function () {
-    for await (const chunk of audioDataIterator) {
-      if (chunk.data.message === 'SHARE_RECORDING_BUFFER') {
-        const abuffer = pcmEncode(chunk.data.buffer[0]);
-        const audiodata = new Uint8Array(abuffer);
-        // console.log(`processing chunk of size ${audiodata.length}`);
-        /*yield {
+    const ws = new WebSocket('ws://localhost:8080');
+    const getAudioStream = async function () {
+      for await (const chunk of audioDataIterator) {
+        if (chunk.data.message === 'SHARE_RECORDING_BUFFER') {
+          const abuffer = pcmEncode(chunk.data.buffer[0]);
+          const audiodata = new Uint8Array(abuffer);
+          // console.log(`processing chunk of size ${audiodata.length}`);
+          /*yield {
           AudioEvent: {
             AudioChunk: audiodata,
           },
         };*/
-        ws.send(audiodata)
+          ws.send(audiodata);
+        }
       }
-    }
-  };
-  getAudioStream();
-  /*const transcribeClient = new TranscribeStreamingClient({
+    };
+    getAudioStream();
+    /*const transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: currentCredentials,
   });
@@ -118,7 +118,7 @@ const startStreaming = async (
       }
     }
   }*/
-};
+  };
 
 const stopStreaming = async (
   mediaRecorder: AudioWorkletNode,
