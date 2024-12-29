@@ -1,25 +1,20 @@
 import { useEffect } from 'react';
 
-import {
-  StartStreamTranscriptionCommand,
-  TranscribeStreamingClient,
-} from '@aws-sdk/client-transcribe-streaming';
 import pEvent from 'p-event';
 
-import { AWSCredentials } from '@aws-amplify/core/internals/utils';
 import { LiveTranscriptionProps, MessageDataType, RecordingProperties } from '../types';
 
-const sampleRate = import.meta.env.VITE_TRANSCRIBE_SAMPLING_RATE;
+//const sampleRate = import.meta.env.VITE_TRANSCRIBE_SAMPLING_RATE;
 const audiosource = import.meta.env.VITE_TRANSCRIBE_AUDIO_SOURCE;
 
 const startStreaming = async (
-  handleTranscribeOutput: (
+  /*handleTranscribeOutput: (
     data: string,
     partial: boolean,
     transcriptionClient: TranscribeStreamingClient,
     mediaRecorder: AudioWorkletNode
   ) => void,
-  currentCredentials: AWSCredentials
+  currentCredentials: AWSCredentials*/
 ) => {
   const audioContext = new window.AudioContext();
   let stream: MediaStream;
@@ -70,21 +65,24 @@ const startStreaming = async (
     'message'
   );
 
-  const getAudioStream = async function* () {
+  const ws = new WebSocket('ws://localhost:8080');
+  const getAudioStream = async function () {
     for await (const chunk of audioDataIterator) {
       if (chunk.data.message === 'SHARE_RECORDING_BUFFER') {
         const abuffer = pcmEncode(chunk.data.buffer[0]);
         const audiodata = new Uint8Array(abuffer);
         // console.log(`processing chunk of size ${audiodata.length}`);
-        yield {
+        /*yield {
           AudioEvent: {
             AudioChunk: audiodata,
           },
-        };
+        };*/
+        ws.send(audiodata)
       }
     }
   };
-  const transcribeClient = new TranscribeStreamingClient({
+  getAudioStream();
+  /*const transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: currentCredentials,
   });
@@ -119,7 +117,7 @@ const startStreaming = async (
         }
       }
     }
-  }
+  }*/
 };
 
 const stopStreaming = async (
@@ -158,12 +156,12 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
     mediaRecorder,
     transcriptionClient,
     currentCredentials,
-    setMediaRecorder,
+    /*setMediaRecorder,
     setTranscriptionClient,
-    setTranscript,
+    setTranscript,*/
   } = props;
 
-  const onTranscriptionDataReceived = (
+  /*const onTranscriptionDataReceived = (
     data: string,
     partial: boolean,
     transcriptionClient: TranscribeStreamingClient,
@@ -176,7 +174,7 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
     });
     setMediaRecorder(mediaRecorder);
     setTranscriptionClient(transcriptionClient);
-  };
+  };*/
 
   const startRecording = async () => {
     if (!currentCredentials) {
@@ -184,7 +182,8 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
       return;
     }
     try {
-      await startStreaming(onTranscriptionDataReceived, currentCredentials as AWSCredentials);
+      //await startStreaming(onTranscriptionDataReceived, currentCredentials as AWSCredentials);
+      await startStreaming();
     } catch (error) {
       alert(`An error occurred while recording: ${error}`);
       await stopRecording();
