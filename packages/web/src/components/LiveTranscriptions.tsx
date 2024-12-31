@@ -1,88 +1,90 @@
 import { useEffect } from 'react';
 
+import {
+  StartStreamTranscriptionCommand,
+  TranscribeStreamingClient,
+} from '@aws-sdk/client-transcribe-streaming';
 import pEvent from 'p-event';
 
+import { AWSCredentials } from '@aws-amplify/core/internals/utils';
 import { LiveTranscriptionProps, MessageDataType, RecordingProperties } from '../types';
 
-//const sampleRate = import.meta.env.VITE_TRANSCRIBE_SAMPLING_RATE;
+const sampleRate = import.meta.env.VITE_TRANSCRIBE_SAMPLING_RATE;
 const audiosource = import.meta.env.VITE_TRANSCRIBE_AUDIO_SOURCE;
 
-const startStreaming = async () =>
-  /*handleTranscribeOutput: (
+const startStreaming = async (
+  handleTranscribeOutput: (
     data: string,
     partial: boolean,
     transcriptionClient: TranscribeStreamingClient,
     mediaRecorder: AudioWorkletNode
   ) => void,
-  currentCredentials: AWSCredentials*/
-  {
-    const audioContext = new window.AudioContext();
-    let stream: MediaStream;
+  currentCredentials: AWSCredentials
+) => {
+  const audioContext = new window.AudioContext();
+  let stream: MediaStream;
 
-    if (audiosource === 'ScreenCapture') {
-      stream = await window.navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
-    } else {
-      stream = await window.navigator.mediaDevices.getUserMedia({
-        video: false,
-        audio: true,
-      });
-    }
-
-    const source1 = audioContext.createMediaStreamSource(stream);
-
-    const recordingprops: RecordingProperties = {
-      numberOfChannels: 1,
-      sampleRate: audioContext.sampleRate,
-      maxFrameCount: (audioContext.sampleRate * 1) / 10,
-    };
-
-    try {
-      await audioContext.audioWorklet.addModule('./worklets/recording-processor.js');
-    } catch (error) {
-      console.log(`Add module error ${error}`);
-    }
-    const mediaRecorder = new AudioWorkletNode(audioContext, 'recording-processor', {
-      processorOptions: recordingprops,
+  if (audiosource === 'ScreenCapture') {
+    stream = await window.navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
     });
-
-    const destination = audioContext.createMediaStreamDestination();
-
-    mediaRecorder.port.postMessage({
-      message: 'UPDATE_RECORDING_STATE',
-      setRecording: true,
+  } else {
+    stream = await window.navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true,
     });
+  }
 
-    source1.connect(mediaRecorder).connect(destination);
-    mediaRecorder.port.onmessageerror = (error) => {
-      console.log(`Error receving message from worklet ${error}`);
-    };
+  const source1 = audioContext.createMediaStreamSource(stream);
 
-    const audioDataIterator = pEvent.iterator<'message', MessageEvent<MessageDataType>>(
-      mediaRecorder.port,
-      'message'
-    );
+  const recordingprops: RecordingProperties = {
+    numberOfChannels: 1,
+    sampleRate: audioContext.sampleRate,
+    maxFrameCount: (audioContext.sampleRate * 1) / 10,
+  };
 
-    const ws = new WebSocket('ws://localhost:8080');
-    const getAudioStream = async function () {
-      for await (const chunk of audioDataIterator) {
-        if (chunk.data.message === 'SHARE_RECORDING_BUFFER') {
-          const abuffer = pcmEncode(chunk.data.buffer[0]);
-          const audiodata = new Uint8Array(abuffer);
-          // console.log(`processing chunk of size ${audiodata.length}`);
-          /*yield {
+  try {
+    await audioContext.audioWorklet.addModule('./worklets/recording-processor.js');
+  } catch (error) {
+    console.log(`Add module error ${error}`);
+  }
+  const mediaRecorder = new AudioWorkletNode(audioContext, 'recording-processor', {
+    processorOptions: recordingprops,
+  });
+
+  const destination = audioContext.createMediaStreamDestination();
+
+  mediaRecorder.port.postMessage({
+    message: 'UPDATE_RECORDING_STATE',
+    setRecording: true,
+  });
+
+  source1.connect(mediaRecorder).connect(destination);
+  mediaRecorder.port.onmessageerror = (error) => {
+    console.log(`Error receving message from worklet ${error}`);
+  };
+
+  const audioDataIterator = pEvent.iterator<'message', MessageEvent<MessageDataType>>(
+    mediaRecorder.port,
+    'message'
+  );
+
+  const getAudioStream = async function* () {
+    for await (const chunk of audioDataIterator) {
+      if (chunk.data.message === 'SHARE_RECORDING_BUFFER') {
+        const abuffer = pcmEncode(chunk.data.buffer[0]);
+        const audiodata = new Uint8Array(abuffer);
+        // console.log(`processing chunk of size ${audiodata.length}`);
+        yield {
           AudioEvent: {
             AudioChunk: audiodata,
           },
-        };*/
-          ws.send(audiodata);
-        }
+        };
       }
-    };
-    getAudioStream();
-    /*const transcribeClient = new TranscribeStreamingClient({
+    }
+  };
+  const transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: currentCredentials,
   });
@@ -117,8 +119,8 @@ const startStreaming = async () =>
         }
       }
     }
-  }*/
-  };
+  }
+};
 
 const stopStreaming = async (
   mediaRecorder: AudioWorkletNode,
@@ -156,12 +158,12 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
     mediaRecorder,
     transcriptionClient,
     currentCredentials,
-    /*setMediaRecorder,
+    setMediaRecorder,
     setTranscriptionClient,
-    setTranscript,*/
+    setTranscript,
   } = props;
 
-  /*const onTranscriptionDataReceived = (
+  const onTranscriptionDataReceived = (
     data: string,
     partial: boolean,
     transcriptionClient: TranscribeStreamingClient,
@@ -174,7 +176,7 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
     });
     setMediaRecorder(mediaRecorder);
     setTranscriptionClient(transcriptionClient);
-  };*/
+  };
 
   const startRecording = async () => {
     if (!currentCredentials) {
@@ -182,8 +184,7 @@ const LiveTranscriptions = (props: LiveTranscriptionProps) => {
       return;
     }
     try {
-      //await startStreaming(onTranscriptionDataReceived, currentCredentials as AWSCredentials);
-      await startStreaming();
+      await startStreaming(onTranscriptionDataReceived, currentCredentials as AWSCredentials);
     } catch (error) {
       alert(`An error occurred while recording: ${error}`);
       await stopRecording();
